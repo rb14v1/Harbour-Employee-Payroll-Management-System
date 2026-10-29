@@ -1,0 +1,33 @@
+services:
+  mongo:
+    image: mongo:7
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports: ["27017:27017"]
+    volumes: [mongo-data:/data/db]
+    healthcheck:
+      test: >
+        mongosh --quiet --eval "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }"
+      interval: 5s
+      timeout: 10s
+      retries: 20
+
+  api:
+    build: { context: ., dockerfile: backend/Dockerfile }
+    depends_on: { mongo: { condition: service_healthy } }
+    environment:
+      NODE_ENV: development
+      PORT: "4000"
+      MONGODB_URI: mongodb://mongo:27017/payroll?replicaSet=rs0
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (32+ characters)}
+      SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-}
+      CORS_ORIGINS: http://localhost:8080
+      COOKIE_SECURE: "false"
+    ports: ["4000:4000"]
+
+  web:
+    build: { context: ., dockerfile: frontend/Dockerfile }
+    depends_on: [api]
+    ports: ["8080:80"]
+
+volumes:
+  mongo-data:

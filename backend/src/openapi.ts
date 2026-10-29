@@ -1,0 +1,82 @@
+type Op = { summary: string; tag: string; permission?: string; body?: boolean };
+
+const ops: Record<string, Record<string, Op>> = {
+  '/auth/login': { post: { summary: 'Sign in; sets httpOnly session cookie and returns CSRF token', tag: 'Auth' } },
+  '/auth/logout': { post: { summary: 'Revoke current session', tag: 'Auth' } },
+  '/auth/me': { get: { summary: 'Current user', tag: 'Auth' } },
+  '/auth/forgot-password': { post: { summary: 'Request reset link', tag: 'Auth' } },
+  '/auth/reset-password': { post: { summary: 'Set new password with reset token', tag: 'Auth' } },
+  '/users': { get: { summary: 'List users', tag: 'Users', permission: 'user:manage' }, post: { summary: 'Create user', tag: 'Users', permission: 'user:manage' } },
+  '/users/{id}': { patch: { summary: 'Update role/active state', tag: 'Users', permission: 'user:manage' } },
+  '/employees': { get: { summary: 'List (scoped to role)', tag: 'Employees' }, post: { summary: 'Create', tag: 'Employees', permission: 'employee:write' } },
+  '/employees/{id}': { get: { summary: 'Detail (object-level scope)', tag: 'Employees' }, patch: { summary: 'Update', tag: 'Employees', permission: 'employee:write' } },
+  '/employees/{id}/deactivate': { post: { summary: 'Controlled deactivation', tag: 'Employees', permission: 'employee:write' } },
+  '/employees/import': { post: { summary: 'CSV import with error report', tag: 'Employees', permission: 'employee:write' } },
+  '/employees/export': { get: { summary: 'CSV export (audited)', tag: 'Employees', permission: 'employee:read' } },
+  '/employees/{id}/payroll-history': { get: { summary: 'Finalised payroll history', tag: 'Employees' } },
+  '/employees/{id}/salary-revisions': { get: { summary: 'Revision history', tag: 'Salary', permission: 'salary:read' }, post: { summary: 'Append revision', tag: 'Salary', permission: 'salary:manage' } },
+  '/salary-structures': { get: { summary: 'List', tag: 'Salary', permission: 'salary:read' }, post: { summary: 'Create (must reconcile to CTC)', tag: 'Salary', permission: 'salary:manage' } },
+  '/salary-structures/{id}': { get: { summary: 'Detail', tag: 'Salary', permission: 'salary:read' }, patch: { summary: 'Update template', tag: 'Salary', permission: 'salary:manage' } },
+  '/departments': { get: { summary: 'List', tag: 'Organisation' }, post: { summary: 'Create', tag: 'Organisation', permission: 'department:manage' } },
+  '/designations': { get: { summary: 'List', tag: 'Organisation' }, post: { summary: 'Create', tag: 'Organisation', permission: 'department:manage' } },
+  '/organization': { get: { summary: 'Profile and settings', tag: 'Organisation' }, patch: { summary: 'Update', tag: 'Organisation', permission: 'org:manage' } },
+  '/payroll-policies': { get: { summary: 'Policy versions', tag: 'Policies' }, post: { summary: 'Create new effective-dated version', tag: 'Policies', permission: 'policy:manage' } },
+  '/payroll/periods': { get: { summary: 'List periods', tag: 'Payroll', permission: 'payroll:read' }, post: { summary: 'Create period', tag: 'Payroll', permission: 'payroll:prepare' } },
+  '/payroll/{periodId}/inputs': { get: { summary: 'List inputs', tag: 'Payroll inputs', permission: 'input:read' }, post: { summary: 'Add input (pending approval)', tag: 'Payroll inputs', permission: 'input:manage' } },
+  '/payroll/{periodId}/inputs/import': { post: { summary: 'CSV import (all-or-nothing)', tag: 'Payroll inputs', permission: 'input:manage' } },
+  '/payroll/inputs/{inputId}/review': { post: { summary: 'Approve/reject input (not own entry)', tag: 'Payroll inputs', permission: 'input:manage' } },
+  '/payroll/{periodId}/simulate': { post: { summary: 'Dry run, nothing stored', tag: 'Payroll', permission: 'payroll:prepare' } },
+  '/payroll/{periodId}/calculate': { post: { summary: 'Calculate/recalculate (reason required on rerun)', tag: 'Payroll', permission: 'payroll:prepare' } },
+  '/payroll/{periodId}/summary': { get: { summary: 'Totals and breakdowns', tag: 'Payroll', permission: 'payroll:read' } },
+  '/payroll/{periodId}/entries': { get: { summary: 'Entries', tag: 'Payroll', permission: 'payroll:read' } },
+  '/payroll/{periodId}/exceptions': { get: { summary: 'Exception report', tag: 'Payroll', permission: 'payroll:read' } },
+  '/payroll/{periodId}/submit': { post: { summary: 'Submit for approval', tag: 'Payroll', permission: 'payroll:prepare' } },
+  '/payroll/{periodId}/approve': { post: { summary: 'Approve (segregation of duties)', tag: 'Payroll', permission: 'payroll:approve' } },
+  '/payroll/{periodId}/reject': { post: { summary: 'Reject with comment', tag: 'Payroll', permission: 'payroll:approve' } },
+  '/payroll/{periodId}/finalize': { post: { summary: 'Finalise and generate payslips', tag: 'Payroll', permission: 'payroll:finalize' } },
+  '/payroll/{periodId}/payment-reference': { post: { summary: 'Record payment', tag: 'Payroll', permission: 'payment:record' } },
+  '/payroll/{periodId}/reconcile': { post: { summary: 'Mark reconciled', tag: 'Payroll', permission: 'payment:record' } },
+  '/payroll/{periodId}/cancel': { post: { summary: 'Cancel unapproved batch', tag: 'Payroll', permission: 'payroll:prepare' } },
+  '/payroll/{periodId}/adjustments': { post: { summary: 'Request post-finalisation adjustment', tag: 'Payroll', permission: 'payroll:prepare' } },
+  '/payroll/adjustments/{id}/review': { post: { summary: 'Approve/reject adjustment', tag: 'Payroll', permission: 'payroll:approve' } },
+  '/payslips': { get: { summary: 'List own (or all for payroll roles)', tag: 'Payslips' } },
+  '/payslips/{id}': { get: { summary: 'Detail', tag: 'Payslips' } },
+  '/payslips/{id}/pdf': { get: { summary: 'Authenticated PDF download', tag: 'Payslips' } },
+  '/me/profile': { get: { summary: 'Own profile and salary', tag: 'Self-service' } },
+  '/me/dashboard': { get: { summary: 'Net pay history, latest payslip', tag: 'Self-service' } },
+  '/me/annual-summary': { get: { summary: 'Financial-year summary', tag: 'Self-service' } },
+  '/me/correction-requests': { get: { summary: 'Own requests', tag: 'Self-service' }, post: { summary: 'Submit request', tag: 'Self-service' } },
+  '/correction-requests': { get: { summary: 'Review queue', tag: 'Requests', permission: 'request:review' } },
+  '/correction-requests/{id}': { patch: { summary: 'Review request', tag: 'Requests', permission: 'request:review' } },
+  '/reports/payroll-summary': { get: { summary: 'Per-period totals (json|csv|pdf)', tag: 'Reports', permission: 'report:view' } },
+  '/reports/department-costs': { get: { summary: 'Cost by department', tag: 'Reports', permission: 'report:view' } },
+  '/reports/deductions': { get: { summary: 'Deductions by category', tag: 'Reports', permission: 'report:view' } },
+  '/reports/headcount': { get: { summary: 'Headcount', tag: 'Reports', permission: 'report:view' } },
+  '/reports/dashboard': { get: { summary: 'Dashboard cards', tag: 'Reports', permission: 'report:view' } },
+  '/audit-logs': { get: { summary: 'Read-only audit trail', tag: 'Audit', permission: 'audit:view' } },
+};
+
+const paths: Record<string, unknown> = {};
+for (const [path, methods] of Object.entries(ops)) {
+  paths[path] = Object.fromEntries(
+    Object.entries(methods).map(([m, o]) => [
+      m,
+      {
+        tags: [o.tag],
+        summary: o.summary,
+        description: o.permission ? `Requires permission \`${o.permission}\`.` : 'Requires authentication; results are scoped to the caller.',
+        parameters: [...path.matchAll(/\{(\w+)\}/g)].map((x) => ({ name: x[1], in: 'path', required: true, schema: { type: 'string' } })),
+        responses: { '200': { description: 'OK' }, '400': { description: 'Validation error' }, '401': { description: 'Unauthenticated' }, '403': { description: 'Forbidden' }, '404': { description: 'Not found' }, '409': { description: 'Conflict / invalid state' } },
+      },
+    ]),
+  );
+}
+
+export const openApiDocument = {
+  openapi: '3.0.3',
+  info: { title: 'Payroll Management API', version: '1.0.0', description: 'Cookie session auth; send X-CSRF-Token on non-GET requests. Money values are integer paise. Errors: { error: { code, message, details?, requestId } }.' },
+  servers: [{ url: '/api/v1' }],
+  paths,
+  components: { securitySchemes: { cookieAuth: { type: 'apiKey', in: 'cookie', name: 'pms_session' } } },
+  security: [{ cookieAuth: [] }],
+};
