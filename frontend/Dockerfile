@@ -11,5 +11,8 @@ RUN npm run build -w frontend
 
 FROM nginx:1.27-alpine
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/frontend/dist /usr/share/nginx/html
+COPY --from=build --chown=nginx:nginx /app/frontend/dist /usr/share/nginx/html
+RUN chown -R nginx:nginx /var/cache/nginx /etc/nginx/conf.d \
+ && touch /var/run/nginx.pid && chown nginx:nginx /var/run/nginx.pid
+USER nginx
 EXPOSE 80
